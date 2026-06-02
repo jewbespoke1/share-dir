@@ -1,0 +1,2229 @@
+DECLARE
+BEGIN
+
+    htp.p('
+
+    <div class="approval-wrapper">
+
+        <!-- LEFT PANEL -->
+        <div class="left-section panel-draggable" id="panelLeft">
+            <div class="main-image-card">
+
+                <div class="bs-header">
+                    <div class="bs-nav-group">
+                        <span class="bs-badge">
+                            <i class="fa fa-bookmark-o"></i>
+                            ' || :P74_ID || '
+                        </span>
+                    </div>
+                    <!-- Eye icon: navigates to page 62 with P74_ID value -->
+                    <button class="detail-nav-icon" title="View Full Detail"
+                       type="button">
+                        <i class="fa fa-eye"></i>
+                    </button>
+                </div>
+
+                <!-- Click main image to open full-screen popup -->
+                <div class="main-img-wrapper">
+                    <img id="mainDesignImage" class="main-design-image"
+                         src="" style="display:none;" />
+                    <div id="noImagePane" class="no-image-pane">
+                        <i class="fa fa-picture-o"></i>
+                        <span>No Image Found</span>
+                    </div>
+                </div>
+
+            </div><!-- main-image-card -->
+
+            <div class="thumb-slider-wrapper">
+                <div class="thumb-arrow left-arrow" title="Previous">
+                    <i class="fa fa-chevron-left"></i>
+                </div>
+                <div class="thumbnail-viewport">
+                    <div class="thumbnail-wrap" id="thumbnailWrap">
+
+    ');
+
+    -- Every image emitted here is scoped to the current BS and reviewer role.
+    -- NPCS L1 sees D.STATUS=''A1'' and NPCS L2 sees D.STATUS=''A2''.
+    -- data-status is normalized for the client LOV:
+    --   ALL      -> all rows for the role status
+    --   APPROVED -> current role approval saved
+    --   REJECTED -> rejected rows
+    FOR r IN (
+        SELECT
+            a.file_id,
+            v.theme_code,
+            d.product_code,
+            d.vendor_ref,
+            d.kt,
+            d.mfg_route,
+            d.skill_set,
+            d.net_wt,
+            d.gross_wt,
+            d.v_lc_per_gms,
+            d.v_loss_per,
+            d.titan_remarks,
+            d.appr_remarks,
+            d.approval_status,
+            d.titan_proposed_lc,
+            d.titan_proposed_loss_per,
+            d.lc_remarks,
+            d.theme_id,
+            apex_util.prepare_url(
+                'wwv_flow.show?p_flow_id='
+                || :app_id
+                || '&p_flow_step_id=0'
+                || '&p_instance='
+                || :app_session
+                || '&p_request=APPLICATION_PROCESS=GET_IMAGE'
+                || '&x01='
+                || a.file_id
+            ) img_url,
+            d.status,
+            CASE
+                WHEN d.approval_status IN ('R', 'REJECTED') THEN 'REJECTED'
+                WHEN :P74_USERROLE = 'NPCS L1' AND d.approval_status = 'A1' THEN 'APPROVED'
+                WHEN :P74_USERROLE = 'NPCS L2' AND d.approval_status = 'A2' THEN 'APPROVED'
+                ELSE 'PENDING'
+            END approval_lov_status
+        FROM tjd_pon.tjd_pon_npd_file_tb a
+        JOIN tjd_pon.tjd_pon_validate_tb v
+            ON a.file_id = v.file_id
+        JOIN tjd_pon.tjd_pon_vendor_entry_det c
+            ON v.file_id = c.file_id
+        JOIN tjd_pon.tjd_pon_npd_costsheet_csv_tb d
+            ON c.file_id = d.file_id
+        WHERE a.bs_id = SUBSTR(:P74_ID, 18)
+          AND d.status = CASE
+                             WHEN :P74_USERROLE = 'NPCS L1' THEN 'A1'
+                             WHEN :P74_USERROLE = 'NPCS L2' THEN 'A2'
+                             ELSE d.status
+                         END
+    )
+    LOOP
+        htp.p('
+            <img
+                class="thumb-img"
+                src="'                   || apex_escape.html_attribute(r.img_url) || '"
+                data-theme               = "' || apex_escape.html_attribute(NVL(r.theme_code,             '-')) || '"
+                data-product             = "' || apex_escape.html_attribute(NVL(r.product_code,           '-')) || '"
+                data-vendor              = "' || apex_escape.html_attribute(NVL(r.vendor_ref,             '-')) || '"
+                data-karat               = "' || apex_escape.html_attribute(NVL(r.kt,                     '-')) || '"
+                data-route               = "' || apex_escape.html_attribute(NVL(r.mfg_route,              '-')) || '"
+                data-skill               = "' || apex_escape.html_attribute(NVL(r.skill_set,              '-')) || '"
+                data-net                 = "' || apex_escape.html_attribute(NVL(r.net_wt,                 '-')) || '"
+                data-gross               = "' || apex_escape.html_attribute(NVL(r.gross_wt,               '-')) || '"
+                data-lc                  = "' || apex_escape.html_attribute(NVL(r.v_lc_per_gms,          '-')) || '"
+                data-loss                = "' || apex_escape.html_attribute(NVL(r.v_loss_per,             '-')) || '"
+                data-remarks             = "' || apex_escape.html_attribute(NVL(r.titan_remarks,          '')) || '"
+                data-apprremarks         = "' || apex_escape.html_attribute(NVL(r.appr_remarks,           '')) || '"
+                data-proposedlc          = "' || apex_escape.html_attribute(NVL(r.titan_proposed_lc,      '')) || '"
+                data-proposedloss        = "' || apex_escape.html_attribute(NVL(r.titan_proposed_loss_per, '')) || '"
+                data-status              = "' || apex_escape.html_attribute(NVL(r.approval_lov_status,    'PENDING')) || '"
+                data-approvalstatus      = "' || apex_escape.html_attribute(NVL(r.approval_status,        '')) || '"
+                data-themeid             = "' || apex_escape.html_attribute(r.theme_id) || '"
+                data-lcremarks           = "' || apex_escape.html_attribute(NVL(r.lc_remarks,             '')) || '"
+                data-dbstatus            = "' || apex_escape.html_attribute(NVL(r.status,                 '')) || '"
+            />
+        ');
+    END LOOP;
+
+    htp.p('
+
+                    </div><!-- thumbnail-wrap -->
+                </div><!-- thumbnail-viewport -->
+                <div class="thumb-arrow right-arrow" title="Next">
+                    <i class="fa fa-chevron-right"></i>
+                </div>
+            </div><!-- thumb-slider-wrapper -->
+            <div class="slider-index-row">
+                <span id="sliderIndex">0 / 0</span>
+            </div>
+
+        </div><!-- panelLeft -->
+
+
+        <!-- CENTER PANEL -->
+        <div class="center-details panel-draggable" id="panelCenter">
+
+            <div class="panel-drag-handle section-title">
+                <span><i class="fa fa-info-circle"></i> Product Details</span>
+                <i class="fa fa-grip-horizontal drag-dots"></i>
+            </div>
+
+            <div class="product-grid">
+
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-tag"></i> Theme Code</span>
+                    <span class="value" id="themeCode">?</span>
+                </div>
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-barcode"></i> Product Code</span>
+                    <span class="value" id="productCode">?</span>
+                </div>
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-user"></i> Vendor Ref</span>
+                    <span class="value" id="vendorRef">?</span>
+                </div>
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-diamond"></i> Karat</span>
+                    <span class="value" id="karat">?</span>
+                </div>
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-random"></i> Mfg Route</span>
+                    <span class="value" id="route">?</span>
+                </div>
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-tools"></i> Skill Set</span>
+                    <span class="value" id="skill">?</span>
+                </div>
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-balance-scale"></i> Net Weight</span>
+                    <span class="value" id="netWt">?</span>
+                </div>
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-balance-scale"></i> Gross Weight</span>
+                    <span class="value" id="grossWt">?</span>
+                </div>
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-usd"></i> LC / Gms</span>
+                    <span class="value" id="lcGms">?</span>
+                </div>
+                <div class="info-card">
+                    <span class="label"><i class="fa fa-percent"></i> V Loss %</span>
+                    <span class="value" id="vLoss">?</span>
+                </div>
+                <div class="info-card titan-lc-card">
+                    <span class="label"><i class="fa fa-usd"></i> Titan LC</span>
+                    <span class="value" id="detailTitanLc">?</span>
+                </div>
+                <div class="info-card titan-loss-card">
+                    <span class="label"><i class="fa fa-percent"></i> Titan Loss %</span>
+                    <span class="value" id="detailTitanLoss">?</span>
+                </div>
+                <div class="info-card full-width">
+                    <span class="label"><i class="fa fa-comment"></i> Titan Remarks</span>
+                    <span class="value" id="remarks">?</span>
+                </div>
+
+            </div><!-- product-grid -->
+
+            <div class="status-summary">
+                <div class="status-badge pending" title="All Status">
+                    <i class="fa fa-list fa-lg"></i>
+                    <span id="cntPending">0</span>
+                </div>
+                <div class="status-badge approved" title="Accepted">
+                    <i class="fa fa-check-circle fa-lg"></i>
+                    <span id="cntAccepted">0</span>
+                </div>
+                <div class="status-badge rejected" title="Rejected">
+                    <i class="fa fa-times-circle fa-lg"></i>
+                    <span id="cntRejected">0</span>
+                </div>
+                <div class="status-badge negotiate" title="Negotiate">
+                    <i class="fa fa-handshake-o fa-lg"></i>
+                    <span id="cntNegotiate">0</span>
+                </div>
+                <div class="status-badge hold" title="Hold">
+                    <i class="fa fa-pause-circle fa-lg"></i>
+                    <span id="cntHold">0</span>
+                </div>
+            </div>
+
+        </div><!-- panelCenter -->
+
+
+        <!-- RIGHT PANEL -->
+        <div class="right-panel panel-draggable" id="panelRight">
+
+            <div class="panel-drag-handle section-title">
+                <span><i class="fa fa-search"></i> Review Decision</span>
+                <i class="fa fa-grip-horizontal drag-dots"></i>
+            </div>
+
+            <div class="review-decision-controls">
+                <div class="status-filter-row">
+                    <label class="input-label" for="statusFilter">
+                        <i class="fa fa-filter"></i> Review LOV
+                    </label>
+                    <select id="statusFilter">
+                        <option value="ALL">All Status</option>
+                        <option value="APPROVED">Accepted</option>
+                        <option value="REJECTED">Rejected</option>
+                        <option value="NEGOTIATE">Negotiate</option>
+                        <option value="HOLD">Hold</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="action-grid four-btn">
+                <div class="split-btn-wrapper">
+                    <button type="button" class="action-btn approve-btn split-main">
+                        <i class="fa fa-check-circle"></i> Accept
+                    </button>
+                    <button type="button" class="action-btn approve-btn split-all" title="Accept All">
+                        <i class="fa fa-check-square-o"></i>
+                    </button>
+                </div>
+                <div class="split-btn-wrapper">
+                    <button type="button" class="action-btn reject-btn split-main">
+                        <i class="fa fa-times-circle"></i> Reject
+                    </button>
+                    <button type="button" class="action-btn reject-btn split-all" title="Reject All">
+                        <i class="fa fa-ban"></i>
+                    </button>
+                </div>
+                <div class="split-btn-wrapper">
+                    <button type="button" class="action-btn negotiate-btn split-main">
+                        <i class="fa fa-handshake-o"></i> Negotiate
+                    </button>
+                    <button type="button" class="action-btn negotiate-btn split-all" title="Negotiate All">
+                        <i class="fa fa-exchange"></i>
+                    </button>
+                </div>
+                <div class="split-btn-wrapper">
+                    <button type="button" class="action-btn hold-btn split-main">
+                        <i class="fa fa-pause-circle"></i> Hold
+                    </button>
+                    <button type="button" class="action-btn hold-btn split-all" title="Hold All">
+                        <i class="fa fa-hourglass-half"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="remarks-box">
+                <label class="input-label" for="apprRemarks">
+                    <i class="fa fa-comment"></i> Enter Remarks
+                </label>
+                <textarea id="apprRemarks" placeholder="Enter remarks..."></textarea>
+            </div>
+
+            <div class="save-row">
+                <button type="button" class="back-btn">
+                    <i class="fa fa-arrow-left"></i> Back
+                </button>
+                <button type="button" class="save-btn">
+                    <i class="fa fa-save"></i> Save
+                </button>
+                <button type="button" class="exit-btn">
+                    <i class="fa fa-sign-out"></i> Save &amp; Exit
+                </button>
+            </div>
+
+        </div><!-- panelRight -->
+
+    </div><!-- approval-wrapper -->
+
+    <!-- Full-screen image popup (hidden by default via CSS) -->
+    <div id="imgPopup" class="img-popup-overlay">
+        <button class="popup-close-btn" title="Close (Esc)">
+            <i class="fa fa-times"></i>
+        </button>
+        <img id="imgPopupContent" class="popup-img" src="" alt="Design Preview" />
+    </div>
+
+    ');
+
+END;
+
+
+
+$.fn.refreshStatusSummary = function () {
+    loadRealtimeCounts();
+    return this;
+};
+
+const THUMB_WIDTH = 98;
+
+const $allThumbs   = $('.thumb-img');
+let filteredThumbs = $allThumbs;
+let currentIndex   = 0;
+let currentThemeId = null;
+
+function getRole() {
+    return ($v('P74_USERROLE') || '').toUpperCase();
+}
+
+function getRoleStatus() {
+    var role = getRole();
+    if ( role === 'NPCS L1' ) return 'A1';
+    if ( role === 'NPCS L2' ) return 'A2';
+    return '';
+}
+
+function getApproveStatus() {
+    var role = getRole();
+    if ( role === 'NPCS L1' ) return 'A2';
+    if ( role === 'NPCS L2' ) return 'AD';
+    return 'APPROVED';
+}
+
+function getStatusForDecision(decision) {
+    var role = getRole();
+    if (role === 'NPCS L1') {
+        if (decision === 'APPROVE') return 'A2';
+        if (decision === 'REJECT') return 'R';
+        if (decision === 'HOLD') return 'A1';
+        if (decision === 'NEGOTIATE') return 'F';
+    }
+    if (role === 'NPCS L2') {
+        if (decision === 'APPROVE') return 'AD';
+        if (decision === 'REJECT') return 'R';
+        if (decision === 'HOLD') return 'A2';
+        if (decision === 'NEGOTIATE') return 'A1';
+    }
+    return '';
+}
+
+function getLovStatusForDecision(decision) {
+    if (decision === 'APPROVE') return 'APPROVED';
+    if (decision === 'REJECT') return 'REJECTED';
+    if (decision === 'NEGOTIATE') return 'NEGOTIATE';
+    if (decision === 'HOLD') return 'HOLD';
+    return 'PENDING';
+}
+
+function requireRemarks(decision) {
+    if ( decision !== 'REJECT' ) return true;
+
+    var remarks = $.trim($('#apprRemarks').val() || '');
+    if ( remarks ) return true;
+
+    apex.message.showErrors([{
+        type     : 'error',
+        location : 'page',
+        message  : 'Enter Remarks is mandatory for Reject.'
+    }]);
+    $('#apprRemarks').focus();
+    return false;
+}
+
+function updateSliderIndex() {
+    var total = filteredThumbs ? filteredThumbs.length : 0;
+    var shown = total > 0 ? currentIndex + 1 : 0;
+    $('#sliderIndex').text(shown + ' / ' + total);
+}
+
+function playDecisionAnimation(decision) {
+    var cls = decision === 'REJECT' ? 'decision-reject-anim' : 'decision-approve-anim';
+    var $targets = $('#mainDesignImage, .thumb-img.active');
+
+    $targets.removeClass('decision-approve-anim decision-reject-anim');
+    void ($targets.length && $targets[0].offsetWidth);
+    $targets.addClass(cls);
+
+    setTimeout(function() {
+        $targets.removeClass(cls);
+    }, 760);
+}
+
+/* ---- Title Case helper ---- */
+function toTitleCase(str) {
+    if (!str || str === '-' || str === '?') return str;
+    return String(str).toLowerCase().replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+
+/* ---- Navigate to page 62 with P74_ID ---- */
+
+
+$(document).on('click', '.detail-nav-icon', function () {
+
+    var url = 'f?p='
+        + $v('pFlowId')        // APP_ID
+        + ':62:'
+        + $v('pInstance')     // SESSION
+        + '::NO::P62_BS_ID:'
+        + encodeURIComponent($v('P74_ID'));
+
+    apex.navigation.redirect(url);
+});
+
+
+
+/* ---- Compute how many thumbs fit in the viewport right now ---- */
+function getVisibleCount() {
+    var vpW = $('.thumbnail-viewport').width() || 0;
+    return Math.max(1, Math.floor((vpW + 10) / THUMB_WIDTH));
+}
+
+
+/* ============================================================
+   BOOTSTRAP
+   ============================================================ */
+restorePanelOrder();
+initPanelDrag();
+initializeSlider();
+applyThumbStatusClasses();
+
+
+function initializeSlider() {
+    filteredThumbs = $allThumbs;
+    $allThumbs.show();
+
+    if ( filteredThumbs.length === 0 ) {
+        showNoImage();
+        return;
+    }
+
+    currentIndex = 0;
+    activateFilteredImage( currentIndex );
+    moveFilteredSlider();
+    loadRealtimeCounts();
+    updateSelectedFilterState();
+}
+
+function applyThumbStatusClasses() {
+    $allThumbs.each( function() {
+        var st = ( $( this ).data('status') || '' ).toLowerCase();
+        if ( st ) $( this ).addClass( 'vstatus-' + st );
+    });
+}
+
+
+/* ============================================================
+   NO-IMAGE STATE
+   ============================================================ */
+function showNoImage() {
+    $('#mainDesignImage').hide();
+    $('#noImagePane').show();
+    clearDetailPanel();
+    currentThemeId = null;
+    updateSliderIndex();
+}
+
+function hideNoImage() {
+    $('#noImagePane').hide();
+    $('#mainDesignImage').show();
+}
+
+
+/* ============================================================
+   ACTIVATE IMAGE BY INDEX
+   ============================================================ */
+function activateFilteredImage( index ) {
+    $allThumbs.removeClass('active side');
+    filteredThumbs.each( function(i) {
+        $( this ).addClass( i === index ? 'active' : 'side' );
+    });
+
+    var $active = $( filteredThumbs[index] );
+    currentThemeId = $active.data('themeid');
+
+    var imgSrc = $active.attr('src');
+    if ( imgSrc && imgSrc.trim() !== '' ) {
+        $('#mainDesignImage').attr('src', imgSrc);
+        hideNoImage();
+    } else {
+        showNoImage();
+        return;
+    }
+
+    loadDetails( $active );
+
+    $('#apprRemarks').val( $active.data('apprremarks')  || '' );
+    updateSliderIndex();
+}
+
+
+/* ============================================================
+   DETAIL CARDS
+   ============================================================ */
+function loadDetails( $obj ) {
+
+    var lcRmk      = ( $obj.data('lcremarks') || '' ).toString().toUpperCase();
+    var themeColor = lcRmk === 'NEW'      ? '#dc2626'
+                   : lcRmk === 'EXISTING' ? '#16a34a'
+                                          : '#ea580c';
+
+    $('#themeCode').text( $obj.data('theme') || '-' ).css('color', themeColor);
+
+    $('#productCode').text( $obj.data('product') || '-' );
+    $('#vendorRef').text(   $obj.data('vendor')  || '-' );
+    $('#karat').text(       $obj.data('karat')   || '-' );
+    $('#route').text(       $obj.data('route')   || '-' );
+    $('#skill').text(       $obj.data('skill')   || '-' );
+    $('#netWt').text(       $obj.data('net')     || '-' );
+    $('#grossWt').text(     $obj.data('gross')   || '-' );
+    $('#lcGms').text(       $obj.data('lc')      || '-' );
+    $('#vLoss').text(       $obj.data('loss')    || '-' );
+    $('#detailTitanLc').text(   $obj.data('proposedlc')   || '-' );
+    $('#detailTitanLoss').text( $obj.data('proposedloss') || '-' );
+    $('#remarks').text(     $obj.data('remarks') || '-' );
+}
+
+function clearDetailPanel() {
+    $('#themeCode').text('-').css('color', '#ea580c');
+    $( '#productCode,#vendorRef,#karat,#route,' +
+       '#skill,#netWt,#grossWt,#lcGms,#vLoss,#detailTitanLc,#detailTitanLoss,#remarks' ).text('-');
+    $( '#apprRemarks' ).val('');
+}
+
+
+/* ============================================================
+   SLIDER TRANSLATE
+   ============================================================ */
+function moveFilteredSlider() {
+    var visCount  = getVisibleCount();
+    var total     = filteredThumbs.length;
+
+    if ( total <= visCount ) {
+        $('.thumbnail-wrap').css('transform', 'translateX(0)');
+        updateSliderIndex();
+        return;
+    }
+
+    var max       = ( total - visCount ) * THUMB_WIDTH;
+    var translate = Math.min( Math.max( currentIndex * THUMB_WIDTH, 0 ), max );
+    $('.thumbnail-wrap').css('transform', 'translateX(-' + translate + 'px)');
+    updateSliderIndex();
+}
+
+
+/* ============================================================
+   ARROW NAVIGATION
+   ============================================================ */
+$(document).on( 'click', '.right-arrow', function() {
+    if ( currentIndex < filteredThumbs.length - 1 ) {
+        currentIndex++;
+        activateFilteredImage( currentIndex );
+        moveFilteredSlider();
+    }
+});
+
+$(document).on( 'click', '.left-arrow', function() {
+    if ( currentIndex > 0 ) {
+        currentIndex--;
+        activateFilteredImage( currentIndex );
+        moveFilteredSlider();
+    }
+});
+
+/* ============================================================
+   THUMBNAIL CLICK
+   ============================================================ */
+$(document).on( 'click', '.thumb-img', function() {
+    var idx = filteredThumbs.index( this );
+    if ( idx < 0 ) return;
+    currentIndex = idx;
+    activateFilteredImage( currentIndex );
+    moveFilteredSlider();
+});
+
+
+/* ============================================================
+   FULL-SCREEN IMAGE POPUP
+   ============================================================ */
+$(document).on('click', '#mainDesignImage', function() {
+    var src = $(this).attr('src');
+    if ( src && src.trim() !== '' ) {
+        $('#imgPopupContent').attr('src', src);
+        $('#imgPopup').fadeIn(180);
+    }
+});
+
+/*$(document).on('click', '.popup-close-btn', function() {
+   $('#imgPopup').fadeOut(180);
+});*/
+
+$(document).on('click', '.popup-close-btn', function(e) {
+    e.preventDefault();
+    $('#imgPopup').fadeOut(180);
+});
+
+$(document).on('click', '#imgPopup', function(e) {
+    if ( $(e.target).is('#imgPopup') ) {
+        
+        $('#imgPopup').fadeOut(180);
+    }
+});
+
+$(document).on('keydown', function(e) {
+    if ( e.key === 'Escape' ) $('#imgPopup').fadeOut(180);
+});
+
+
+/* ============================================================
+   STATUS FILTER LOV
+   ALL shows current role D.STATUS only. Approved/Rejected use APPROVAL_STATUS.
+   ============================================================ */
+$(document).on( 'change', '#statusFilter', function() {
+    reapplyFilter(0);
+});
+
+function thumbMatchesCurrentRole($thumb) {
+    var roleStatus = getRoleStatus();
+    return !roleStatus || $thumb.data('dbstatus') === roleStatus;
+}
+
+function loadRealtimeCounts() {
+    // Fetch real counts from database
+    apex.server.process(
+        'GET_STATUS_COUNTS',
+        {
+            x01 : $v('P74_ID'),
+            x02 : getRole()
+        },
+        {
+            dataType : 'json',
+            success : function(pData) {
+                $('#cntPending').text(pData.total || 0);
+                $('#cntAccepted').text(pData.approved || 0);
+                $('#cntRejected').text(pData.rejected || 0);
+                $('#cntNegotiate').text(pData.negotiate || 0);
+                $('#cntHold').text(pData.hold || 0);
+            },
+            error : function() {
+                // fallback to client side counts
+                var pending=0, approved=0, rejected=0, negotiate=0, hold=0;
+                $allThumbs.each(function() {
+                    var $thumb = $(this);
+                    if (!thumbMatchesCurrentRole($thumb)) return;
+                    pending++;
+                    var st = $thumb.data('status');
+                    if (st === 'APPROVED') approved++;
+                    if (st === 'REJECTED') rejected++;
+                    if (st === 'NEGOTIATE') negotiate++;
+                    if (st === 'HOLD') hold++;
+                });
+                $('#cntPending').text(pending);
+                $('#cntAccepted').text(approved);
+                $('#cntRejected').text(rejected);
+                $('#cntNegotiate').text(negotiate);
+                $('#cntHold').text(hold);
+            }
+        }
+    );
+}
+
+function updateCountsFromServer(pData) {
+    if ( !pData ) {
+        loadRealtimeCounts();
+        return;
+    }
+
+    $('#cntPending').text(pData.pending || 0);
+    $('#cntAccepted').text(pData.approved || 0);
+    $('#cntRejected').text(pData.rejected || 0);
+}
+
+function updateSelectedFilterState() {
+    var filter = $('#statusFilter').val() || 'ALL';
+    $('.status-badge').removeClass('is-selected-filter');
+
+    if ( filter === 'APPROVED' ) {
+        $('.status-badge.approved').addClass('is-selected-filter');
+    } else if ( filter === 'REJECTED' ) {
+        $('.status-badge.rejected').addClass('is-selected-filter');
+    } else if ( filter === 'NEGOTIATE' ) {
+        $('.status-badge.negotiate').addClass('is-selected-filter');
+    } else if ( filter === 'HOLD' ) {
+        $('.status-badge.hold').addClass('is-selected-filter');
+    } else {
+        $('.status-badge.pending').addClass('is-selected-filter');
+    }
+}
+
+function reapplyFilter(indexOverride) {
+    var filter = $('#statusFilter').val();
+    var nextIndex = typeof indexOverride === 'number' ? indexOverride : currentIndex;
+
+    $allThumbs.hide().removeClass('active side');
+
+    filteredThumbs = $allThumbs.filter(function() {
+        var $thumb = $(this);
+        if ( !thumbMatchesCurrentRole($thumb) ) return false;
+        return filter === 'ALL' || $thumb.data('status') === filter;
+    });
+
+    filteredThumbs.show();
+    currentIndex = Math.min(nextIndex, Math.max(filteredThumbs.length - 1, 0));
+
+    if ( filteredThumbs.length > 0 ) {
+        activateFilteredImage(currentIndex);
+    } else {
+        showNoImage();
+    }
+
+    moveFilteredSlider();
+    loadRealtimeCounts();
+    updateSelectedFilterState();
+    updateSliderIndex();
+}
+
+function setThumbDecision($thumb, decision, approvalStatus) {
+    var lovStatus = getLovStatusForDecision(decision);
+    var remarks = $.trim($('#apprRemarks').val() || '');
+
+    $thumb.data('status', lovStatus);
+    $thumb.data('approvalstatus', approvalStatus || getStatusForDecision(decision));
+    if ( decision === 'REJECT' || remarks ) {
+        $thumb.data('apprremarks', remarks);
+    }
+
+    $thumb.removeClass('vstatus-pending vstatus-approved vstatus-rejected vstatus-negotiate vstatus-hold')
+          .addClass('vstatus-' + lovStatus.toLowerCase());
+}
+
+function setBulkThumbDecision($thumb, decision, approvalStatus) {
+    var lovStatus = getLovStatusForDecision(decision);
+    var remarks = $.trim($('#apprRemarks').val() || '');
+
+    $thumb.data('status', lovStatus);
+    $thumb.data('approvalstatus', approvalStatus || getStatusForDecision(decision));
+    if ( decision === 'REJECT' || remarks ) {
+        $thumb.data('apprremarks', remarks);
+    }
+
+    $thumb.removeClass('vstatus-pending vstatus-approved vstatus-rejected vstatus-negotiate vstatus-hold')
+          .addClass('vstatus-' + lovStatus.toLowerCase());
+}
+
+/* ============================================================
+   UPDATE CURRENT IMAGE APPROVAL STATUS
+   ============================================================ */
+function updateStatus(decision) {
+    if ( !currentThemeId || !requireRemarks(decision) ) return;
+
+    $('.action-btn').prop('disabled', true);
+
+    apex.server.process(
+        'UPDATE_APPROVAL_STATUS',
+        {
+            x01 : currentThemeId,
+            x02 : decision,
+            x03 : $v('P74_ID'),
+            x04 : getRole(),
+            x05 : '',
+            x06 : '',
+            x07 : $('#apprRemarks').val()
+        },
+        {
+            dataType : 'json',
+
+            success : function(pData) {
+                if ( pData.status && pData.status !== 'OK' ) {
+                    apex.message.showErrors([{
+                        type: 'error', location: 'page',
+                        message: pData.message || 'Update failed.'
+                    }]);
+                    return;
+                }
+
+                var $thumb = $( filteredThumbs[currentIndex] );
+                setThumbDecision($thumb, decision, pData.approval_status);
+                $thumb.data('dbstatus', pData.approval_status);
+                loadRealtimeCounts();
+                playDecisionAnimation(decision);
+
+                if (decision === 'APPROVE') {
+                    showBirthdayAnimation();
+                }
+
+                apex.message.showPageSuccess('Updated Successfully');
+
+                if ( $('#statusFilter').val() === 'ALL' && currentIndex < filteredThumbs.length - 1 ) {
+                    currentIndex++;
+                    activateFilteredImage(currentIndex);
+                    moveFilteredSlider();
+                } else {
+                    reapplyFilter();
+                }
+            },
+
+            error : function() {
+                apex.message.showErrors([{
+                    type     : 'error',
+                    location : 'page',
+                    message  : 'Update failed. Please try again.'
+                }]);
+            },
+
+            complete : function() {
+                $('.action-btn').prop('disabled', false).removeClass('is-processing');
+            }
+        }
+    );
+}
+
+/* ============================================================
+   SAVE CURRENT APPROVAL REMARKS
+   ============================================================ */
+function saveFields(onSuccess, onError) {
+    if ( !currentThemeId ) {
+        if ( typeof onSuccess === 'function' ) onSuccess();
+        return;
+    }
+
+    apex.server.process(
+        'SAVE_APPR_REMARKS',
+        {
+            x01 : currentThemeId,
+            x02 : $v('P74_ID'),
+            x03 : getRole(),
+            x04 : '',
+            x05 : '',
+            x06 : $('#apprRemarks').val()
+        },
+        {
+            dataType : 'json',
+
+            success : function(pData) {
+                if ( pData.status && pData.status !== 'OK' ) {
+                    apex.message.showErrors([{
+                        type: 'error', location: 'page',
+                        message: pData.message || 'Save failed.'
+                    }]);
+                    if ( typeof onError === 'function' ) onError();
+                    return;
+                }
+
+                var $thumb = $( filteredThumbs[currentIndex] );
+                if ( $.trim($('#apprRemarks').val() || '') ) {
+                    $thumb.data('apprremarks', $('#apprRemarks').val());
+                }
+
+                if ( typeof onSuccess === 'function' ) onSuccess();
+            },
+
+            error : function() {
+                apex.message.showErrors([{
+                    type: 'error', location: 'page',
+                    message: 'Save failed. Please try again.'
+                }]);
+                if ( typeof onError === 'function' ) onError();
+            }
+        }
+    );
+}
+
+function getBulkAction() {
+    return '';
+}
+
+function clearBulkAction() {}
+
+function bulkUpdateStatus(decision, onSuccess, onError) {
+    if ( !requireRemarks(decision) ) {
+        if ( typeof onError === 'function' ) onError();
+        return;
+    }
+
+    apex.server.process(
+        'BULK_UPDATE_APPROVAL_STATUS',
+        {
+            x01 : $v('P74_ID'),
+            x02 : decision,
+            x03 : getRole(),
+            x04 : $('#apprRemarks').val()
+        },
+        {
+            dataType : 'json',
+
+            success : function(pData) {
+                if ( pData.status && pData.status !== 'OK' ) {
+                    apex.message.showErrors([{
+                        type: 'error', location: 'page',
+                        message: pData.message || 'Bulk update failed.'
+                    }]);
+                    if ( typeof onError === 'function' ) onError();
+                    return;
+                }
+
+                var approvalStatus = pData.approval_status || getStatusForDecision(decision);
+                $allThumbs.each(function() {
+                    var $thumb = $(this);
+                    if ( thumbMatchesCurrentRole($thumb) ) {
+                        setBulkThumbDecision($thumb, decision, approvalStatus);
+                        $thumb.data('dbstatus', approvalStatus);
+                    }
+                });
+
+                loadRealtimeCounts();
+                reapplyFilter(0);
+                playDecisionAnimation(decision);
+                if (decision === 'APPROVE') showBirthdayAnimation();
+                apex.message.showPageSuccess('Bulk update saved successfully');
+                if ( typeof onSuccess === 'function' ) onSuccess();
+            },
+
+            error : function() {
+                apex.message.showErrors([{
+                    type: 'error', location: 'page',
+                    message: 'Bulk update failed. Please try again.'
+                }]);
+                if ( typeof onError === 'function' ) onError();
+            }
+        }
+    );
+}
+
+function saveCurrentOrBulk(onSuccess, onError) {
+    saveFields(onSuccess, onError);
+}
+
+/* ============================================================
+   DECISION BUTTON EVENTS
+   ============================================================ */
+$(document).on('click', '.approve-btn.split-main', function(e) { e.preventDefault(); updateStatus('APPROVE'); });
+$(document).on('click', '.reject-btn.split-main',  function(e) { e.preventDefault(); updateStatus('REJECT');  });
+$(document).on('click', '.negotiate-btn.split-main', function(e) { e.preventDefault(); updateStatus('NEGOTIATE'); });
+$(document).on('click', '.hold-btn.split-main', function(e) { e.preventDefault(); updateStatus('HOLD'); });
+
+// Split-All icon buttons with confirmation popup
+$(document).on('click', '.approve-btn.split-all', function(e) {
+    e.preventDefault();
+    if (confirm('Accept All items for this BS ID?')) bulkUpdateStatus('APPROVE');
+});
+$(document).on('click', '.reject-btn.split-all', function(e) {
+    e.preventDefault();
+    if (confirm('Reject All items for this BS ID?')) bulkUpdateStatus('REJECT');
+});
+$(document).on('click', '.negotiate-btn.split-all', function(e) {
+    e.preventDefault();
+    if (confirm('Negotiate All items for this BS ID?')) bulkUpdateStatus('NEGOTIATE');
+});
+$(document).on('click', '.hold-btn.split-all', function(e) {
+    e.preventDefault();
+    if (confirm('Hold All items for this BS ID?')) bulkUpdateStatus('HOLD');
+});
+
+/* ============================================================
+   SAVE / SAVE & EXIT / BACK
+   ============================================================ */
+$(document).on('click', '.save-btn', function(e) {
+    e.preventDefault();
+    var $btn = $(this);
+    $btn.prop('disabled', true);
+
+    saveCurrentOrBulk(
+        function() {
+            apex.message.showPageSuccess('Saved Successfully');
+            $btn.prop('disabled', false);
+        },
+        function() { $btn.prop('disabled', false); }
+    );
+});
+
+$(document).on('click', '.exit-btn', function(e) {
+    e.preventDefault();
+    var $btn = $(this);
+    $btn.prop('disabled', true);
+
+    // First save current, then call SAVE_AND_EXIT_UPDATE, then redirect
+    saveCurrentOrBulk(
+        function() {
+            apex.server.process(
+                'SAVE_AND_EXIT_UPDATE',
+                {
+                    x01 : $v('P74_ID'),
+                    x02 : getRole()
+                },
+                {
+                    dataType : 'json',
+                    success : function(pData) {
+                        if (pData.status === 'OK') {
+                            apex.navigation.redirect(apex.util.makeApplicationUrl({ pageId: 64 }));
+                        } else {
+                            apex.message.showErrors([{type:'error',location:'page',message:pData.message||'Save & Exit failed.'}]);
+                            $btn.prop('disabled', false);
+                        }
+                    },
+                    error : function() {
+                        apex.message.showErrors([{type:'error',location:'page',message:'Save & Exit failed.'}]);
+                        $btn.prop('disabled', false);
+                    }
+                }
+            );
+        },
+        function() { $btn.prop('disabled', false); }
+    );
+});
+
+$(document).on('click', '.back-btn', function(e) {
+    e.preventDefault();
+    apex.navigation.redirect(apex.util.makeApplicationUrl({ pageId: 64 }));
+});
+
+/* Birthday/confetti animation for Accept */
+function showBirthdayAnimation() {
+    var $container = $('.main-img-wrapper');
+    var $confetti = $('<div class="confetti-container"></div>');
+    var colors = ['#f94144','#f3722c','#f8961e','#f9c74f','#90be6d','#43aa8b','#577590','#6366f1','#ec4899'];
+    for (var i = 0; i < 50; i++) {
+        var color = colors[Math.floor(Math.random() * colors.length)];
+        var left = Math.random() * 100;
+        var delay = Math.random() * 0.5;
+        var size = Math.random() * 8 + 4;
+        $confetti.append('<div class="confetti-piece" style="left:'+left+'%;background:'+color+';animation-delay:'+delay+'s;width:'+size+'px;height:'+size+'px;"></div>');
+    }
+    $container.append($confetti);
+    setTimeout(function() { $confetti.remove(); }, 2500);
+}
+
+
+/* ============================================================
+   PANEL DRAG-AND-DROP
+   ============================================================ */
+function panelKey() {
+    var u = (typeof apex !== 'undefined' && apex.env && apex.env.APP_USER)
+            ? apex.env.APP_USER : 'default';
+    return 'approvalPanelOrder_' + u;
+}
+
+function savePanelOrder() {
+    try {
+        var wrapper = document.querySelector('.approval-wrapper');
+        var order   = Array.from(wrapper.children).map(function(p) { return p.id; });
+        localStorage.setItem(panelKey(), JSON.stringify(order));
+    } catch(e) {}
+}
+
+function restorePanelOrder() {
+    try {
+        var saved = localStorage.getItem(panelKey());
+        if (!saved) return;
+        var order   = JSON.parse(saved);
+        var wrapper = document.querySelector('.approval-wrapper');
+        order.forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) wrapper.appendChild(el);
+        });
+    } catch(e) {}
+}
+
+function initPanelDrag() {
+    var dragged = null;
+
+    document.querySelectorAll('.panel-draggable').forEach(function(panel) {
+
+        panel.setAttribute('draggable', 'true');
+
+        panel.addEventListener('dragstart', function(e) {
+            dragged = this;
+            setTimeout(function() { panel.classList.add('is-dragging'); }, 0);
+            e.dataTransfer.effectAllowed = 'move';
+        });
+
+        panel.addEventListener('dragend', function() {
+            this.classList.remove('is-dragging');
+            document.querySelectorAll('.panel-draggable')
+                    .forEach(function(p) { p.classList.remove('drag-over'); });
+            dragged = null;
+        });
+
+        panel.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            if (this !== dragged) {
+                document.querySelectorAll('.panel-draggable')
+                        .forEach(function(p) { p.classList.remove('drag-over'); });
+                this.classList.add('drag-over');
+            }
+        });
+
+        panel.addEventListener('dragleave', function(e) {
+            if (!this.contains(e.relatedTarget)) {
+                this.classList.remove('drag-over');
+            }
+        });
+
+        panel.addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('drag-over');
+            if (!dragged || dragged === this) return;
+
+            var wrapper = this.parentNode;
+            var temp    = document.createElement('div');
+            wrapper.insertBefore(temp, dragged);
+            wrapper.insertBefore(dragged, this);
+            wrapper.insertBefore(this, temp);
+            wrapper.removeChild(temp);
+
+            savePanelOrder();
+        });
+    });
+}
+
+:root {
+    --apex-header-h : 88px;
+}
+
+.approval-wrapper {
+    display               : grid;
+    grid-template-columns : repeat(3, 1fr);
+    gap                   : 6px;
+    padding               : 0 0 12px;
+    height                : calc(100vh - var(--apex-header-h));
+    box-sizing            : border-box;
+    background            : linear-gradient(135deg, #eef2ff 0%, #f4f7fb 50%, #f0fdf4 100%);
+    overflow              : hidden;
+}
+
+.panel-draggable {
+    display        : flex;
+    flex-direction : column;
+    height         : 100%;
+    overflow       : hidden;
+    box-sizing     : border-box;
+    min-height     : 0;
+}
+
+.main-image-card,
+.center-details,
+.right-panel {
+    background           : rgba(255, 255, 255, 0.9);
+    backdrop-filter      : blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius        : 18px;
+    padding              : 10px 12px;
+    box-shadow           : 0 4px 20px rgba(0, 0, 0, .07),
+                           0 1px 4px  rgba(0, 0, 0, .04);
+    border               : 1px solid rgba(255, 255, 255, .7);
+    display              : flex;
+    flex-direction       : column;
+    overflow             : hidden;
+    min-height           : 0;
+    margin-top: 5px;
+    margin-left: 5px;
+    margin-right: 5px;
+}
+
+.panel-draggable.is-dragging {
+    opacity    : .55;
+    transform  : scale(.98);
+}
+
+.panel-draggable.drag-over .main-image-card,
+.panel-draggable.drag-over .center-details,
+.panel-draggable.drag-over .right-panel {
+    outline        : 2px dashed #6366f1;
+    outline-offset : 3px;
+    background     : rgba(238, 242, 255, .92);
+}
+
+.panel-drag-handle {
+    cursor          : grab;
+    display         : flex;
+    align-items     : center;
+    justify-content : space-between;
+    flex-shrink     : 0;
+}
+.panel-drag-handle:active { cursor: grabbing; }
+
+.drag-dots { color: #9ca3af; font-size: 15px; opacity: .6; }
+
+
+/* LEFT PANEL */
+
+.left-section { gap: 6px; }
+
+.left-section .main-image-card {
+    flex       : 1;
+    min-height : 0;
+}
+
+.bs-header {
+    display         : flex;
+    align-items     : center;
+    justify-content : space-between;
+    margin-bottom   : 8px;
+    flex-shrink     : 0;
+}
+
+.bs-nav-group {
+    display     : inline-flex;
+    align-items : center;
+    gap         : 6px;
+    min-width   : 0;
+}
+
+.bs-badge {
+    background    : linear-gradient(135deg, #b8860b, #ffd700, #daa520);
+    color         : #fff;
+    padding       : 6px 14px;
+    border-radius : 12px;
+    font-weight   : 700;
+    font-size     : 13px;
+    display       : inline-flex;
+    align-items   : center;
+    gap           : 6px;
+    letter-spacing: .3px;
+    animation     : goldenPulse 2s ease-in-out infinite;
+    box-shadow    : 0 2px 12px rgba(218, 165, 32, .4);
+}
+
+.detail-nav-icon {
+    width           : 34px;
+    height          : 34px;
+    border-radius   : 10px;
+    background      : linear-gradient(135deg, #1d4ed8, #3b82f6);
+    color           : #fff;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    font-size       : 15px;
+    text-decoration : none;
+    transition      : transform .2s, box-shadow .2s;
+    box-shadow      : 0 4px 10px rgba(29, 78, 216, .3);
+}
+.detail-nav-icon:hover {
+    transform  : scale(1.1);
+    box-shadow : 0 6px 16px rgba(29, 78, 216, .45);
+    color      : #fff;
+}
+
+.main-img-wrapper {
+    position      : relative;
+    width         : 100%;
+    flex          : 1;
+    min-height    : 0;
+    border-radius : 14px;
+    overflow      : hidden;
+    background    : #f3f4f6;
+}
+
+.main-design-image {
+    width      : 100%;
+    height     : 100%;
+    object-fit : contain;
+    display    : block;
+    cursor     : zoom-in;
+}
+
+.no-image-pane {
+    position        : absolute;
+    inset           : 0;
+    display         : flex;
+    flex-direction  : column;
+    align-items     : center;
+    justify-content : center;
+    color           : #9ca3af;
+    font-size       : 14px;
+    gap             : 10px;
+}
+.no-image-pane i { font-size: 44px; color: #d1d5db; }
+
+.thumb-slider-wrapper {
+    display     : flex;
+    align-items : center;
+    gap         : 6px;
+    padding     : 6px 0 0;
+    flex-shrink : 0;
+}
+
+.slider-index-row {
+    height          : 20px;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    flex-shrink     : 0;
+    color           : #475569;
+    font-size       : 11px;
+    font-weight     : 800;
+}
+
+#sliderIndex {
+    min-width       : 54px;
+    padding         : 2px 8px;
+    border-radius   : 999px;
+    background      : #eef2ff;
+    border          : 1px solid #c7d2fe;
+    text-align      : center;
+}
+
+.thumbnail-viewport {
+    flex      : 1;
+    min-width : 0;
+    overflow  : hidden;
+}
+
+.thumbnail-wrap {
+    display    : flex;
+    gap        : 10px;
+    transition : transform .25s cubic-bezier(.4, 0, .2, 1);
+}
+
+.thumb-img {
+    width         : 88px;
+    height        : 88px;
+    min-width     : 88px;
+    border-radius : 14px;
+    object-fit    : cover;
+    cursor        : pointer;
+    transition    : all .25s ease;
+    opacity       : .45;
+    transform     : scale(.88);
+    border        : 3px solid transparent;
+    background    : #f3f4f6;
+}
+.thumb-img.active {
+    opacity      : 1;
+    transform    : scale(1.06);
+    border-color : #16a34a;
+    box-shadow   : 0 4px 14px rgba(22, 163, 74, .35);
+}
+.thumb-img.side { opacity: .68; transform: scale(.93); }
+
+.thumb-img.vstatus-pending  { border-color: rgba(99,  102, 241, .55); }
+.thumb-img.vstatus-approved { border-color: rgba(22,  163,  74, .65); }
+.thumb-img.vstatus-rejected { border-color: rgba(220,  38,  38, .65); }
+.thumb-img.vstatus-negotiate { border-color: rgba(217, 119,  6, .65); }
+.thumb-img.vstatus-hold     { border-color: rgba(124,  58, 237, .65); }
+
+.thumb-arrow {
+    width           : 36px;
+    height          : 36px;
+    min-width       : 36px;
+    border-radius   : 50%;
+    background      : #fff;
+    box-shadow      : 0 2px 10px rgba(0, 0, 0, .12);
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    cursor          : pointer;
+    font-size       : 15px;
+    color           : #374151;
+    user-select     : none;
+    transition      : box-shadow .2s, transform .2s;
+    flex-shrink     : 0;
+}
+.thumb-arrow:hover {
+    box-shadow : 0 4px 16px rgba(0, 0, 0, .18);
+    transform  : scale(1.08);
+}
+
+
+/* CENTER PANEL */
+
+.section-title {
+    font-size     : 15px;
+    font-weight   : 700;
+    margin-bottom : 8px;
+    color         : #111827;
+    flex-shrink   : 0;
+}
+.section-title i { margin-right: 6px; color: #6b7280; }
+
+.product-grid {
+    flex                  : 1;
+    min-height            : 0;
+    display               : grid;
+    grid-template-columns : repeat(2, 1fr);
+    grid-template-rows    : repeat(6, 1fr) auto;
+    gap                   : 5px;
+    overflow              : hidden;
+}
+
+.info-card {
+    background     : linear-gradient(145deg, #f9fafb, #f3f4f6);
+    border         : 1px solid #e5e7eb;
+    border-radius  : 10px;
+    padding        : 5px 10px;
+    display        : flex;
+    flex-direction : column;
+    justify-content: center;
+    overflow       : hidden;
+}
+
+.label {
+    display        : block;
+    font-size      : 9px;
+    color          : #9ca3af;
+    font-weight    : 700;
+    margin-bottom  : 2px;
+    text-transform : uppercase;
+    letter-spacing : .5px;
+    white-space    : nowrap;
+}
+.label i { margin-right: 3px; }
+
+.value {
+    font-size    : 12px;
+    font-weight  : 700;
+    color        : #1f2937;
+    overflow     : hidden;
+    text-overflow: ellipsis;
+    white-space  : nowrap;
+}
+
+.full-width { grid-column: 1 / -1; }
+
+.titan-lc-card {
+    background : linear-gradient(145deg, #ecfeff, #cffafe);
+    border-color: #67e8f9;
+}
+.titan-lc-card .label,
+.titan-lc-card .value { color: #155e75; }
+
+.titan-loss-card {
+    background : linear-gradient(145deg, #fff7ed, #fed7aa);
+    border-color: #fdba74;
+}
+.titan-loss-card .label,
+.titan-loss-card .value { color: #9a3412; }
+
+.status-summary {
+    display               : grid;
+    grid-template-columns : repeat(5, 1fr);
+    gap                   : 4px;
+    margin-top            : 6px;
+    flex-shrink           : 0;
+}
+
+.status-badge:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.18); }
+.status-badge.is-selected-filter {
+    box-shadow : 0 0 0 3px rgba(17, 24, 39, .14), 0 6px 16px rgba(0,0,0,.18);
+    transform  : translateY(-1px);
+}
+
+.pending   { background: linear-gradient(135deg, #4f46e5, #818cf8); }
+.approved,
+.accepted  { background: linear-gradient(135deg, #16a34a, #22c55e); }
+.rejected  { background: linear-gradient(135deg, #dc2626, #f87171); }
+.negotiate { background: linear-gradient(135deg, #d97706, #fbbf24); }
+.hold      { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+
+
+/* RIGHT PANEL */
+
+.review-decision-controls {
+    background      : #f8fafc;
+    border          : 1px solid #e2e8f0;
+    border-radius   : 12px;
+    padding         : 8px;
+    margin-bottom   : 8px;
+    flex-shrink     : 0;
+}
+
+.status-filter-row {
+    margin-bottom : 8px;
+    flex-shrink   : 0;
+}
+
+#statusFilter {
+    width         : 100%;
+    height        : 36px;
+    border        : 2px solid #e5e7eb;
+    background    : #f9fafb;
+    border-radius : 12px;
+    padding       : 0 12px;
+    font-size     : 12px;
+    font-weight   : 600;
+    color         : #111827;
+    margin-bottom : 0;
+    outline       : none;
+    cursor        : pointer;
+    transition    : border-color .2s, box-shadow .2s;
+    box-sizing    : border-box;
+    flex-shrink   : 0;
+}
+#statusFilter:focus { border-color: #16a34a; box-shadow: 0 0 0 3px rgba(22,163,74,.12); }
+
+.bulk-pill-row {
+    display               : grid;
+    grid-template-columns : 1fr 1fr;
+    gap                   : 6px;
+    margin-bottom         : 8px;
+    flex-shrink           : 0;
+}
+
+.bulk-pill {
+    position : relative;
+    display  : block;
+}
+
+.bulk-pill input {
+    position : absolute;
+    opacity  : 0;
+    pointer-events: none;
+}
+
+.bulk-pill span {
+    height          : 36px;
+    border          : 1px solid #e5e7eb;
+    border-radius   : 10px;
+    background      : #fff;
+    color           : #374151;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    gap             : 5px;
+    font-size       : 11px;
+    font-weight     : 800;
+    cursor          : pointer;
+    transition      : border-color .2s, background .2s, color .2s, box-shadow .2s, transform .2s;
+}
+
+.bulk-pill span:hover {
+    transform  : translateY(-1px);
+    box-shadow : 0 5px 14px rgba(15, 23, 42, .10);
+}
+
+.approve-all-pill input:checked + span {
+    border-color : #16a34a;
+    background   : rgba(22, 163, 74, .1);
+    color        : #166534;
+    box-shadow   : 0 0 0 3px rgba(22,163,74,.1);
+}
+
+.reject-all-pill input:checked + span {
+    border-color : #dc2626;
+    background   : rgba(220, 38, 38, .1);
+    color        : #991b1b;
+    box-shadow   : 0 0 0 3px rgba(220,38,38,.1);
+}
+
+.action-grid {
+    display               : grid;
+    grid-template-columns : 1fr 1fr;
+    gap                   : 6px;
+    margin-bottom         : 8px;
+    flex-shrink           : 0;
+}
+
+.action-grid.four-btn {
+    grid-template-columns : 1fr 1fr;
+    grid-template-rows    : auto auto;
+}
+
+.split-btn-wrapper {
+    display : flex;
+    gap     : 0;
+}
+
+.split-btn-wrapper .split-main {
+    flex          : 3;
+    border-radius : 12px 0 0 12px;
+}
+
+.split-btn-wrapper .split-all {
+    flex          : 1;
+    border-radius : 0 12px 12px 0;
+    border-left   : 1px solid rgba(255,255,255,.3);
+    min-width     : 32px;
+    padding       : 0;
+}
+
+.action-btn,
+.back-btn,
+.save-btn,
+.exit-btn {
+    width           : 100%;
+    height          : 38px;
+    border          : none;
+    border-radius   : 12px;
+    color           : #fff;
+    font-weight     : 700;
+    font-size       : 11px;
+    letter-spacing  : .4px;
+    cursor          : pointer;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    gap             : 5px;
+    transition      : transform .2s, box-shadow .2s, opacity .2s;
+    box-sizing      : border-box;
+}
+.action-btn:hover:not(:disabled),
+.back-btn:hover,
+.save-btn:hover,
+.exit-btn:hover:not(:disabled) {
+    transform  : translateY(-2px);
+    box-shadow : 0 6px 16px rgba(0,0,0,.2);
+}
+.action-btn:active:not(:disabled),
+.back-btn:active,
+.save-btn:active,
+.exit-btn:active:not(:disabled) { transform: translateY(0); }
+
+.action-btn:disabled,
+.back-btn:disabled,
+.exit-btn:disabled,
+.save-btn:disabled { opacity: .5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.approve-btn   { background: linear-gradient(135deg, #16a34a, #22c55e); }
+.reject-btn    { background: linear-gradient(135deg, #dc2626, #f87171); }
+.negotiate-btn { background: linear-gradient(135deg, #d97706, #fbbf24); }
+.hold-btn      { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+.back-btn      { background: linear-gradient(135deg, #4b5563, #6b7280); }
+.save-btn      { background: linear-gradient(135deg, #0f766e, #14b8a6); }
+.exit-btn      { background: linear-gradient(135deg, #7c3aed, #a78bfa); }
+
+.action-btn.is-processing {
+    position : relative;
+    overflow : hidden;
+}
+.action-btn.is-processing:after {
+    content    : "";
+    position   : absolute;
+    inset      : 0;
+    transform  : translateX(-100%);
+    background : linear-gradient(90deg, transparent, rgba(255,255,255,.38), transparent);
+    animation  : actionSweep .8s ease-in-out infinite;
+}
+
+.decision-approve-anim {
+    animation : approvePop .72s cubic-bezier(.2, .8, .2, 1);
+}
+
+.decision-reject-anim {
+    animation : rejectPulse .72s cubic-bezier(.2, .8, .2, 1);
+}
+
+.input-row {
+    display               : grid;
+    grid-template-columns : 1fr 1fr;
+    gap                   : 6px;
+    margin-bottom         : 8px;
+    flex-shrink           : 0;
+}
+
+.input-label {
+    display        : block;
+    font-size      : 9px;
+    font-weight    : 700;
+    color          : #6b7280;
+    margin-bottom  : 4px;
+    text-transform : uppercase;
+    letter-spacing : .5px;
+}
+.input-label i { margin-right: 3px; }
+
+.input-field {
+    width         : 100%;
+    height        : 36px;
+    border        : 2px solid #e5e7eb;
+    background    : #f9fafb;
+    border-radius : 10px;
+    padding       : 0 10px;
+    font-size     : 12px;
+    font-weight   : 600;
+    color         : #111827;
+    outline       : none;
+    transition    : border-color .2s, box-shadow .2s;
+    box-sizing    : border-box;
+}
+.input-field:focus {
+    border-color : #16a34a;
+    background   : #fff;
+    box-shadow   : 0 0 0 3px rgba(22,163,74,.12);
+}
+.input-field[type="number"]::-webkit-inner-spin-button,
+.input-field[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+.remarks-box {
+    flex           : 1;
+    min-height     : 0;
+    display        : flex;
+    flex-direction : column;
+    margin-bottom  : 8px;
+}
+
+.remarks-box textarea {
+    flex          : 1;
+    min-height    : 0;
+    width         : 100%;
+    border        : 2px solid #e5e7eb;
+    background    : #f9fafb;
+    border-radius : 12px;
+    padding       : 8px 10px;
+    resize        : none;
+    outline       : none;
+    font-size     : 12px;
+    color         : #111827;
+    transition    : border-color .2s, box-shadow .2s;
+    box-sizing    : border-box;
+    margin-top    : 4px;
+    font-family   : inherit;
+    line-height   : 1.5;
+}
+.remarks-box textarea:focus {
+    border-color : #16a34a;
+    background   : #fff;
+    box-shadow   : 0 0 0 3px rgba(22,163,74,.12);
+}
+
+@keyframes actionSweep {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+@keyframes approvePop {
+    0%   { transform: scale(1); filter: saturate(1); }
+    35%  { transform: scale(1.035); filter: saturate(1.35); box-shadow: 0 0 0 6px rgba(22,163,74,.18); }
+    100% { transform: scale(1); filter: saturate(1); }
+}
+
+@keyframes rejectPulse {
+    0%, 100% { transform: translateX(0); filter: saturate(1); }
+    20%      { transform: translateX(-5px); box-shadow: 0 0 0 6px rgba(220,38,38,.15); }
+    40%      { transform: translateX(5px); filter: saturate(1.25); }
+    60%      { transform: translateX(-3px); }
+    80%      { transform: translateX(3px); }
+}
+
+@keyframes goldenPulse {
+    0%, 100% { box-shadow: 0 2px 12px rgba(218,165,32,.4); }
+    50%      { box-shadow: 0 4px 20px rgba(255,215,0,.7); }
+}
+
+@keyframes confettiFall {
+    0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(300px) rotate(720deg); opacity: 0; }
+}
+
+.confetti-container {
+    position : absolute;
+    inset    : 0;
+    overflow : hidden;
+    pointer-events: none;
+    z-index  : 10;
+}
+
+.confetti-piece {
+    position      : absolute;
+    top           : -10px;
+    border-radius : 2px;
+    animation     : confettiFall 2s ease-out forwards;
+}
+
+.status-badge {
+    height          : 42px;
+    border-radius   : 12px;
+    color           : #fff;
+    display         : flex;
+    align-items     : center;
+    justify-content : space-between;
+    padding         : 0 8px;
+    font-size       : 14px;
+    transition      : transform .2s, box-shadow .2s;
+    cursor          : default;
+    position        : relative;
+    overflow        : hidden;
+}
+
+.status-badge span {
+    min-width       : 22px;
+    height          : 22px;
+    border-radius   : 50%;
+    background      : rgba(255,255,255,.3);
+    color           : #fff;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    font-size       : 10px;
+    font-weight     : 800;
+    animation       : badgePop .6s ease;
+}
+
+@keyframes badgePop {
+    0%   { transform: scale(0); }
+    60%  { transform: scale(1.3); }
+    100% { transform: scale(1); }
+}
+
+.save-row {
+    display               : grid;
+    grid-template-columns : 1fr 1fr 1fr;
+    gap                   : 6px;
+    flex-shrink           : 0;
+}
+
+
+/* FULL-SCREEN IMAGE POPUP */
+
+.img-popup-overlay {
+    display         : none;
+    position        : fixed;
+    inset           : 0;
+    background      : rgba(0, 0, 0, .88);
+    z-index         : 9999;
+    align-items     : center;
+    justify-content : center;
+}
+
+.img-popup-overlay[style*="display: block"],
+.img-popup-overlay[style*="display:block"] {
+    display : flex !important;
+}
+
+.popup-img {
+    max-width     : 88vw;
+    max-height    : 88vh;
+    object-fit    : contain;
+    border-radius : 16px;
+    box-shadow    : 0 20px 60px rgba(0,0,0,.5);
+}
+
+.popup-close-btn {
+    position        : fixed;
+    top             : 20px;
+    right           : 24px;
+    background      : rgba(255,255,255,.15);
+    border          : none;
+    color           : #fff;
+    font-size       : 22px;
+    width           : 46px;
+    height          : 46px;
+    border-radius   : 50%;
+    cursor          : pointer;
+    display         : flex;
+    align-items     : center;
+    justify-content : center;
+    transition      : background .2s, transform .2s;
+    z-index         : 10000;
+}
+.popup-close-btn:hover {
+    background : rgba(255,255,255,.28);
+    transform  : scale(1.1);
+}
+
+-------UPDATE_APPROVAL_STATUS------ajax
+DECLARE
+    l_bs_id           tjd_pon.tjd_pon_npd_costsheet_csv_tb.bs_id%TYPE;
+    l_role_status     VARCHAR2(10);
+    l_approval_status      VARCHAR2(20);
+    l_role_approved_status VARCHAR2(20);
+    l_pending              NUMBER := 0;
+    l_approved             NUMBER := 0;
+    l_rejected             NUMBER := 0;
+
+    PROCEDURE write_counts IS
+    BEGIN
+        SELECT
+            COUNT(*),
+            COUNT(CASE WHEN status = l_role_approved_status THEN 1 END),
+            COUNT(CASE WHEN status IN ('R', 'REJECTED') THEN 1 END)
+        INTO l_pending, l_approved, l_rejected
+        FROM tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        WHERE bs_id = l_bs_id;
+    END;
+BEGIN
+    /*l_bs_id := CASE
+                   WHEN LENGTH(apex_application.g_x03) >= 18 THEN SUBSTR(apex_application.g_x03, 18)
+                   ELSE apex_application.g_x03
+               END;*/
+               
+             l_bs_id :=  apex_application.g_x03;
+
+    l_role_status := CASE
+                         WHEN UPPER(apex_application.g_x04) = 'NPCS L1' THEN 'A1'
+                         WHEN UPPER(apex_application.g_x04) = 'NPCS L2' THEN 'A2'
+                     END;
+
+    l_role_approved_status := CASE
+                                  WHEN UPPER(apex_application.g_x04) = 'NPCS L1' THEN 'A2'
+                                  WHEN UPPER(apex_application.g_x04) = 'NPCS L2' THEN 'AD'
+                                  ELSE 'APPROVED'
+                              END;
+
+    l_approval_status := CASE
+                             WHEN apex_application.g_x02 = 'REJECT' THEN 'R'
+                             WHEN apex_application.g_x02 = 'HOLD' THEN
+                                 CASE WHEN UPPER(apex_application.g_x04) = 'NPCS L1' THEN 'A1'
+                                      WHEN UPPER(apex_application.g_x04) = 'NPCS L2' THEN 'A2'
+                                 END
+                             WHEN apex_application.g_x02 = 'NEGOTIATE' THEN
+                                 CASE WHEN UPPER(apex_application.g_x04) = 'NPCS L1' THEN 'F'
+                                      WHEN UPPER(apex_application.g_x04) = 'NPCS L2' THEN 'A1'
+                                 END
+                             ELSE l_role_approved_status
+                         END;
+
+    IF apex_application.g_x02 = 'REJECT'
+       AND NULLIF(TRIM(apex_application.g_x07), '') IS NULL THEN
+        raise_application_error(-20001, 'Enter Remarks is mandatory for Reject.');
+    END IF;
+
+    UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+    SET status                   = l_approval_status,
+        appr_remarks             = CASE
+                                       WHEN NULLIF(TRIM(apex_application.g_x07), '') IS NOT NULL
+                                       THEN NULLIF(TRIM(apex_application.g_x07), '')
+                                       ELSE appr_remarks
+                                   END
+    WHERE theme_id = apex_application.g_x01
+      AND bs_id = l_bs_id
+      AND (l_role_status IS NULL OR status = l_role_status);
+
+    write_counts;
+    COMMIT;
+
+    apex_json.open_object;
+    apex_json.write('status', 'OK');
+    apex_json.write('approval_status', l_approval_status);
+    apex_json.write('pending',  l_pending);
+    apex_json.write('approved', l_approved);
+    apex_json.write('rejected', l_rejected);
+    apex_json.close_object;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        apex_json.open_object;
+        apex_json.write('status',  'ERROR');
+        apex_json.write('message', SQLERRM);
+        apex_json.close_object;
+END;
+
+
+-----------SAVE_APPR_REMARKS---------
+DECLARE
+    l_bs_id       tjd_pon.tjd_pon_npd_costsheet_csv_tb.bs_id%TYPE;
+    l_role_status VARCHAR2(10);
+BEGIN
+    l_bs_id := CASE
+                   WHEN LENGTH(apex_application.g_x02) >= 18 THEN SUBSTR(apex_application.g_x02, 18)
+                   ELSE apex_application.g_x02
+               END;
+
+    l_role_status := CASE
+                         WHEN UPPER(apex_application.g_x03) = 'NPCS L1' THEN 'A1'
+                         WHEN UPPER(apex_application.g_x03) = 'NPCS L2' THEN 'A2'
+                     END;
+
+    UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+    SET titan_proposed_lc        = NULLIF(TRIM(apex_application.g_x04), ''),
+        titan_proposed_loss_per  = NULLIF(TRIM(apex_application.g_x05), ''),
+        appr_remarks             = CASE
+                                       WHEN NULLIF(TRIM(apex_application.g_x06), '') IS NOT NULL
+                                       THEN NULLIF(TRIM(apex_application.g_x06), '')
+                                       ELSE appr_remarks
+                                   END
+    WHERE theme_id = apex_application.g_x01
+      AND bs_id = l_bs_id
+      AND (l_role_status IS NULL OR status = l_role_status);
+
+    COMMIT;
+
+    apex_json.open_object;
+    apex_json.write('status', 'OK');
+    apex_json.close_object;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        apex_json.open_object;
+        apex_json.write('status',  'ERROR');
+        apex_json.write('message', SQLERRM);
+        apex_json.close_object;
+END;
+
+
+
+
+-----------BULK_UPDATE_APPROVAL_STATUS-----------
+
+DECLARE
+    l_bs_id           tjd_pon.tjd_pon_npd_costsheet_csv_tb.bs_id%TYPE;
+    l_role_status     VARCHAR2(10);
+    l_approval_status      VARCHAR2(20);
+    l_role_approved_status VARCHAR2(20);
+    l_pending              NUMBER := 0;
+    l_approved             NUMBER := 0;
+    l_rejected             NUMBER := 0;
+BEGIN
+   /* l_bs_id := CASE
+                   WHEN LENGTH(apex_application.g_x01) >= 18 THEN SUBSTR(apex_application.g_x01, 18)
+                   ELSE apex_application.g_x01
+               END;
+               */
+           l_bs_id :=     apex_application.g_x01;
+
+    l_role_status := CASE
+                         WHEN UPPER(apex_application.g_x03) = 'NPCS L1' THEN 'A1'
+                         WHEN UPPER(apex_application.g_x03) = 'NPCS L2' THEN 'A2'
+                     END;
+
+    l_role_approved_status := CASE
+                                  WHEN UPPER(apex_application.g_x03) = 'NPCS L1' THEN 'A2'
+                                  WHEN UPPER(apex_application.g_x03) = 'NPCS L2' THEN 'AD'
+                                  ELSE 'APPROVED'
+                              END;
+
+    l_approval_status := CASE
+                             WHEN apex_application.g_x02 = 'REJECT' THEN 'R'
+                             WHEN apex_application.g_x02 = 'HOLD' THEN
+                                 CASE WHEN UPPER(apex_application.g_x03) = 'NPCS L1' THEN 'A1'
+                                      WHEN UPPER(apex_application.g_x03) = 'NPCS L2' THEN 'A2'
+                                 END
+                             WHEN apex_application.g_x02 = 'NEGOTIATE' THEN
+                                 CASE WHEN UPPER(apex_application.g_x03) = 'NPCS L1' THEN 'F'
+                                      WHEN UPPER(apex_application.g_x03) = 'NPCS L2' THEN 'A1'
+                                 END
+                             ELSE l_role_approved_status
+                         END;
+
+    IF apex_application.g_x02 = 'REJECT'
+       AND NULLIF(TRIM(apex_application.g_x04), '') IS NULL THEN
+        raise_application_error(-20001, 'Enter Remarks is mandatory for Reject.');
+    END IF;
+
+    UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+    SET status          = l_approval_status,
+        appr_remarks    = CASE
+                              WHEN NULLIF(TRIM(apex_application.g_x04), '') IS NOT NULL
+                              THEN NULLIF(TRIM(apex_application.g_x04), '')
+                              ELSE appr_remarks
+                          END
+    WHERE bs_id = l_bs_id
+      AND (l_role_status IS NULL OR status = l_role_status);
+
+    SELECT
+        COUNT(*),
+        COUNT(CASE WHEN status = l_role_approved_status THEN 1 END),
+        COUNT(CASE WHEN status IN ('R', 'REJECTED') THEN 1 END)
+    INTO l_pending, l_approved, l_rejected
+    FROM tjd_pon.tjd_pon_npd_costsheet_csv_tb
+    WHERE bs_id = l_bs_id;
+
+    COMMIT;
+
+    apex_json.open_object;
+    apex_json.write('status', 'OK');
+    apex_json.write('approval_status', l_approval_status);
+    apex_json.write('pending',  l_pending);
+    apex_json.write('approved', l_approved);
+    apex_json.write('rejected', l_rejected);
+    apex_json.close_object;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        apex_json.open_object;
+        apex_json.write('status',  'ERROR');
+        apex_json.write('message', SQLERRM);
+        apex_json.close_object;
+END;
+
+-------------GET_STATUS_COUNTS------------
+
+
+DECLARE
+    l_bs_id       tjd_pon.tjd_pon_npd_costsheet_csv_tb.bs_id%TYPE;
+    l_role        VARCHAR2(20) := UPPER(apex_application.g_x02);
+    l_total       NUMBER := 0;
+    l_approved    NUMBER := 0;
+    l_rejected    NUMBER := 0;
+    l_negotiate   NUMBER := 0;
+    l_hold        NUMBER := 0;
+BEGIN
+  /*  l_bs_id := CASE
+                   WHEN LENGTH(apex_application.g_x01) >= 18 THEN SUBSTR(apex_application.g_x01, 18)
+                   ELSE apex_application.g_x01
+               END;*/
+               
+               l_bs_id :=apex_application.g_x01;
+            
+
+    IF l_role = 'NPCS L1' THEN
+        SELECT
+            COUNT(*),
+            COUNT(CASE WHEN status = 'A2' AND approval_status IS NULL THEN 1 END),
+            COUNT(CASE WHEN status = 'R' AND approval_status IS NULL THEN 1 END),
+            COUNT(CASE WHEN status = 'F' AND approval_status IS NULL THEN 1 END),
+            COUNT(CASE WHEN status = 'H' AND approval_status IS NULL THEN 1 END)
+        INTO l_total, l_approved, l_rejected, l_negotiate, l_hold
+        FROM tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        WHERE bs_id = l_bs_id;
+    ELSIF l_role = 'NPCS L2' THEN
+        SELECT
+            COUNT(*),
+            COUNT(CASE WHEN status = 'AD' AND approval_two_status IS NULL THEN 1 END),
+            COUNT(CASE WHEN status = 'R' AND approval_two_status IS NULL THEN 1 END),
+            COUNT(CASE WHEN status = 'A1' AND approval_two_status IS NULL THEN 1 END),
+            COUNT(CASE WHEN status = 'H' AND approval_two_status IS NULL THEN 1 END)
+        INTO l_total, l_approved, l_rejected, l_negotiate, l_hold
+        FROM tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        WHERE bs_id = l_bs_id;
+    END IF;
+
+    apex_json.open_object;
+    apex_json.write('status', 'OK');
+    apex_json.write('total', l_total);
+    apex_json.write('approved', l_approved);
+    apex_json.write('rejected', l_rejected);
+    apex_json.write('negotiate', l_negotiate);
+    apex_json.write('hold', l_hold);
+    apex_json.close_object;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        apex_json.open_object;
+        apex_json.write('status', 'ERROR');
+        apex_json.write('message', SQLERRM);
+        apex_json.close_object;
+END;
+
+---------------SAVE_AND_EXIT_UPDATE-------------
+
+DECLARE
+    l_bs_id       tjd_pon.tjd_pon_npd_costsheet_csv_tb.bs_id%TYPE;
+    l_role        VARCHAR2(20) := UPPER(apex_application.g_x02);
+BEGIN
+   /* l_bs_id := CASE
+                   WHEN LENGTH(apex_application.g_x01) >= 18 THEN SUBSTR(apex_application.g_x01, 18)
+                   ELSE apex_application.g_x01
+               END;*/
+
+
+ l_bs_id :=apex_application.g_x01;
+    IF l_role = 'NPCS L1' THEN
+        -- Accepted: status=A2 -> approval_remarks = 'ACCEPTED'
+        UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        SET appr_remarks = 'ACCEPTED'
+        WHERE bs_id = l_bs_id AND status = 'A2';
+
+        -- Rejected: status=R -> approval_remarks = ''
+        UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        SET appr_remarks = ''
+        WHERE bs_id = l_bs_id AND status = 'R';
+
+        -- Hold: status=H -> approval_remarks = ''
+        UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        SET appr_remarks = ''
+        WHERE bs_id = l_bs_id AND status = 'H';
+
+        -- Negotiate: status=F -> final_verdict = ''
+        UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        SET final_verdict = ''
+        WHERE bs_id = l_bs_id AND status = 'F';
+
+    ELSIF l_role = 'NPCS L2' THEN
+        -- Accepted: status=AD -> approval_two_remarks = 'ACCEPTED'
+        UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        SET approval_two_status= 'ACCEPTED'
+        WHERE bs_id = l_bs_id AND status = 'AD';
+
+        -- Rejected: status=R -> approval_remarks = ''
+        UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        SET appr_remarks = ''
+        WHERE bs_id = l_bs_id AND status = 'R';
+
+        -- Hold: status=H -> approval_remarks = ''
+        UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        SET appr_remarks = ''
+        WHERE bs_id = l_bs_id AND status = 'H';
+
+        -- Negotiate: status=A1 -> final_verdict = ''
+        UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb
+        SET final_verdict = ''
+        WHERE bs_id = l_bs_id AND status = 'A1';
+    END IF;
+
+    COMMIT;
+
+    apex_json.open_object;
+    apex_json.write('status', 'OK');
+    apex_json.close_object;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        apex_json.open_object;
+        apex_json.write('status', 'ERROR');
+        apex_json.write('message', SQLERRM);
+        apex_json.close_object;
+END;
