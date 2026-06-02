@@ -1,0 +1,11 @@
+in this every thing is ok.
+1.dont change any ui 
+2.right now If i seleted LOV value as all status it is showing all which is good
+ 
+For exapmple i have 50 files in all im accepted 25 it is moved as Accepted right now im changing lov value as accepted it is showing 25 accepted values
+that is also good but with that filter if i click the Reject all button means it is updating all 50 as rejected that is wrong when it is all status then 
+only we can do bulk apart from all status that if i selected accepted 
+in costsheet table Approval_remarks "ACCEPTED" records only should Get Updated 
+for rest of Like Rejected Hold Negotiate also should be Like That
+3.in enter remarks tab need right now based on the user role now showing the remarks as separate text fiels as read only it should be populate inside the enter remarks text area
+other things are working good dont change anything
