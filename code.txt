@@ -2227,3 +2227,78 @@ EXCEPTION
         apex_json.write('message', SQLERRM);
         apex_json.close_object;
 END;
+
+
+
+
+1.in this ui everything is ok 
+2.but when i selected lov value As All Status That Time Against The bs_id What are all the details i have in Table That is coming in 
+slider and image pan and appending info card details
+3.but when i select the LOV value For NPCS L1 USER
+
+if it is Accepted Then Status='A1' AND APROVAL_STATUS ='ACCEPTED' 
+IF IT IS Rejected Then Status='A1' AND APROVAL_STATUS ='REJECTED' 
+IF IT IS HOLD Then Status='A1' AND APROVAL_STATUS ='HOLD'  
+IF IT IS NEGOTIATE Then Status='A1' AND APROVAL_STATUS ='NEGOTIATE' 
+
+but when i select the LOV value For NPCS L2 USER
+
+if it is Accepted Then Status='A2' AND APROVAL_TWO_STATUS ='ACCEPTED' 
+IF IT IS Rejected Then Status='A2' AND APROVAL_TWO_STATUS ='REJECTED' 
+IF IT IS HOLD Then Status='A2' AND APROVAL_TWO_STATUS ='HOLD'  
+IF IT IS NEGOTIATE Then Status='A2' AND APROVAL_TWO_STATUS ='NEGOTIATE'
+
+
+THIS VALUE HAVING IMAGE IS NOT COMING IN SLIDER AND IMAGE PAN AND INFO card
+
+
+WHEN ALL STATUS CLICKING FOR NPCS L1 USER STATUS  in ('A1,'A2') CAN BE SHOWN FOR NPCS L1 USER STATUS IN('A2',AD') CAN BE SHOWN
+
+
+5.when i click the save and exit button that time need to ALL AJAX 
+(WHILE SAVE AND EXIT BUTTON CLICK FOR NPCS L1
+UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb SET STATUS='A2' WHERE BS_ID=
+AND APPROVAL_STATUS='ACCEPTED' AND STATUS='A1'
+
+UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb SET STATUS='F' WHERE BS_ID=
+AND APPROVAL_STATUS='NEGOTIATE' AND STATUS='A1'
+
+UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb SET STATUS='R' WHERE BS_ID=
+AND APPROVAL_STATUS='REJECTED' AND STATUS='A1'
+
+
+UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb SET STATUS='H' WHERE BS_ID=
+AND APPROVAL_STATUS='HOLD' AND STATUS='A1'
+
+
+when i click the save and exit button that time need to ALL AJAX 
+(WHILE SAVE AND EXIT BUTTON CLICK FOR NPCS L2
+UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb SET STATUS='AD' WHERE BS_ID=
+AND APPROVAL_STATUS='ACCEPTED' AND STATUS='A2'
+
+UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb SET STATUS='A1' WHERE BS_ID=
+AND APPROVAL_STATUS='NEGOTIATE' AND STATUS='A2'
+
+UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb SET STATUS='R' WHERE BS_ID=
+AND APPROVAL_STATUS='REJECTED' AND STATUS='A2'
+
+
+UPDATE tjd_pon.tjd_pon_npd_costsheet_csv_tb SET STATUS='H' WHERE BS_ID=
+AND APPROVAL_STATUS='HOLD' AND STATUS='A2'
+
+
+7.when i click the Accepted and Rejected and Negotiate and Hold Button That time From Enter Remarks Text Area need to take value 
+
+If NPCS L1 USER then need to update Appr_remarks  approval_one_date=sysdate
+If NPCS L2 USER then need to update Appr_two_remarks COLUMNS approval_two_date=sysdate
+8.in titan titan remarks need to show titan_remarks From The Table 
+9.For NPCS L2 user If Appr_remarks is not null Then need to show that value in enter remarks and it should not be editable under that 
+NPCS L2 Can be added their remarks and need to show differentiate the remarks 
+10.while NPCS L2 login if Appr_two_remarks is not null then we can show but it is editable for NPCS L2
+(for NPCS L1 User The Scnario would be interchanged )
+11.rest of the updates happening correctly and dont change the ui 
+12. IN IMAGE SLIDER IMAGE PAN APPLICABLE IMAGES AND INFOR CARD DETAILS ONLY SHOULD COME 
+13.USER may do the actions one by on or bulk manner if they click accept reject hold negotiate button indiidually then that theme_id only go updated 
+all means against all that BS_ID
+14.this is a product approval rejection mechanism so think on that way
+15.
